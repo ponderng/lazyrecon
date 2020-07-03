@@ -112,13 +112,17 @@ recon(){
   echo "${green}Recon started on $domain ${reset}"
   echo "Listing subdomains using sublister..."
   python ~/tools/Sublist3r/sublist3r.py -d $domain -t 10 -v -e "yahoo,google,bing,virustotal,threatcrowd,ssl" -o ./$domain/$foldername/$domain.txt > /dev/null
+  read -p "Press any key to resume ..."
   echo "Checking certspotter..."
   curl -s https://certspotter.com/api/v0/certs\?domain\=$domain | jq '.[].dns_names[]' | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $domain >> ./$domain/$foldername/$domain.txt
+  read -p "Press any key to resume ..."
   nsrecords $domain
+  read -p "Press any key to resume ..."
   excludedomains
   echo "Starting discovery..."
   discovery $domain
   cat ./$domain/$foldername/$domain.txt | sort -u > ./$domain/$foldername/$domain.txt
+  read -p "Press any key to resume ..."
 
 }
 
@@ -493,7 +497,7 @@ fi
   echo "${green}Scan for $domain finished successfully${reset}"
   duration=$SECONDS
   echo "Scan completed in : $(($duration / 60)) minutes and $(($duration % 60)) seconds."
-  cleantemp
+  #cleantemp
   stty sane
   tput sgr0
 }
