@@ -63,10 +63,15 @@ fi
 
 discovery(){
 	hostalive $domain
+    read -p "Press any key to resume after hostalive..."
 	cleandirsearch $domain
+    read -p "Press any key to resume after cleandirsearch..."
 	aqua $domain
+    read -p "Press any key to resume after aqua..."
 	cleanup $domain
+    read -p "Press any key to resume after cleanup..."
 	waybackrecon $domain
+    read -p "Press any key to resume after waybackrecon..."
 	dirsearcher
 }
 
@@ -112,17 +117,15 @@ recon(){
   echo "${green}Recon started on $domain ${reset}"
   echo "Listing subdomains using sublister..."
   python ~/tools/Sublist3r/sublist3r.py -d $domain -t 10 -v -e "yahoo,google,bing,virustotal,threatcrowd,ssl" -o ./$domain/$foldername/$domain.txt > /dev/null
-  read -p "Press any key to resume ..."
   echo "Checking certspotter..."
   curl -s https://certspotter.com/api/v0/certs\?domain\=$domain | jq '.[].dns_names[]' | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $domain >> ./$domain/$foldername/$domain.txt
-  read -p "Press any key to resume ..."
   nsrecords $domain
-  read -p "Press any key to resume ..."
   excludedomains
   echo "Starting discovery..."
   discovery $domain
+  read -p "Press any key to resume after discovery..."
   cat ./$domain/$foldername/$domain.txt | sort -u > ./$domain/$foldername/$domain.txt
-  read -p "Press any key to resume ..."
+  read -p "Press any key to resume after final copy..."
 
 }
 
@@ -146,6 +149,7 @@ dirsearcher(){
 echo "Starting dirsearch..."
 cat ./$domain/$foldername/urllist.txt | xargs -P$subdomainThreads -I % sh -c "python3 ~/tools/dirsearch/dirsearch.py -e php,asp,aspx,jsp,html,zip,jar -w $dirsearchWordlist -t $dirsearchThreads -u % | grep Target && tput sgr0 && ./lazyrecon.sh -r $domain -r $foldername -r %"
 }
+
 
 aqua(){
 echo "Starting aquatone scan..."
