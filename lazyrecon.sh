@@ -7,11 +7,12 @@
 #
 #
 ########################################
+toolsPath=~/tools
 auquatoneThreads=5
 subdomainThreads=10
 dirsearchThreads=50
-dirsearchWordlist=~/tools/dirsearch/db/dicc.txt
-massdnsWordlist=~/tools/SecLists/Discovery/DNS/clean-jhaddix-dns.txt
+dirsearchWordlist=$toolsPath/dirsearch/db/dicc.txt
+massdnsWordlist=$toolsPath/SecLists/Discovery/DNS/clean-jhaddix-dns.txt
 chromiumPath=/snap/bin/chromium
 ########################################
 # Happy Hunting
@@ -116,11 +117,12 @@ recon(){
 
   echo "${green}Recon started on $domain ${reset}"
   echo "Listing subdomains using sublister..."
-  python ~/tools/Sublist3r/sublist3r.py -d $domain -t 10 -v -e "yahoo,google,bing,virustotal,threatcrowd,ssl" -o ./$domain/$foldername/$domain.txt > /dev/null
+  python $toolsPath/Sublist3r/sublist3r.py -d $domain -t 10 -v -e "yahoo,google,bing,virustotal,threatcrowd,ssl" -o ./$domain/$foldername/$domain.txt > /dev/null
   echo "Checking certspotter..."
   curl -s https://certspotter.com/api/v0/certs\?domain\=$domain | jq '.[].dns_names[]' | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $domain >> ./$domain/$foldername/$domain.txt
   nsrecords $domain
-  excludedomains
+  # excludedomains overwrites alldomains.txt if there's nothing given as excluded, which breaks the script
+  #excludedomains
   echo "Starting discovery..."
   discovery $domain
   #read -p "Press any key to resume after discovery..."
@@ -147,7 +149,7 @@ excludedomains(){
 dirsearcher(){
 
 echo "Starting dirsearch..."
-cat ./$domain/$foldername/urllist.txt | xargs -P$subdomainThreads -I % sh -c "python3 ~/tools/dirsearch/dirsearch.py -e php,asp,aspx,jsp,html,zip,jar -w $dirsearchWordlist -t $dirsearchThreads -u % | grep Target && tput sgr0 && ./lazyrecon.sh -r $domain -r $foldername -r %"
+cat ./$domain/$foldername/urllist.txt | xargs -P$subdomainThreads -I % sh -c "python3 $toolsPath/dirsearch/dirsearch.py -e php,asp,aspx,jsp,html,zip,jar -w $dirsearchWordlist -t $dirsearchThreads -u % | grep Target && tput sgr0 && $toolsPath/lazyrecon/lazyrecon.sh -r $domain -r $foldername -r %"
 }
 
 
@@ -157,13 +159,13 @@ cat ./$domain/$foldername/urllist.txt | aquatone -chrome-path $chromiumPath -out
 }
 
 searchcrtsh(){
- ~/tools/massdns/scripts/ct.py $domain 2>/dev/null > ./$domain/$foldername/tmp.txt
- [ -s ./$domain/$foldername/tmp.txt ] && cat ./$domain/$foldername/tmp.txt | ~/tools/massdns/bin/massdns -r ~/tools/massdns/lists/resolvers.txt -t A -q -o S -w  ./$domain/$foldername/crtsh.txt
- cat ./$domain/$foldername/$domain.txt | ~/tools/massdns/bin/massdns -r ~/tools/massdns/lists/resolvers.txt -t A -q -o S -w  ./$domain/$foldername/domaintemp.txt
+ $toolsPath/massdns/scripts/ct.py $domain 2>/dev/null > ./$domain/$foldername/tmp.txt
+ [ -s ./$domain/$foldername/tmp.txt ] && cat ./$domain/$foldername/tmp.txt | $toolsPath/massdns/bin/massdns -r $toolsPath/massdns/lists/resolvers.txt -t A -q -o S -w  ./$domain/$foldername/crtsh.txt
+ cat ./$domain/$foldername/$domain.txt | $toolsPath/massdns/bin/massdns -r $toolsPath/massdns/lists/resolvers.txt -t A -q -o S -w  ./$domain/$foldername/domaintemp.txt
 }
 
 mass(){
- ~/tools/massdns/scripts/subbrute.py $massdnsWordlist $domain | ~/tools/massdns/bin/massdns -r ~/tools/massdns/lists/resolvers.txt -t A -q -o S | grep -v 142.54.173.92 > ./$domain/$foldername/mass.txt
+ $toolsPath/massdns/scripts/subbrute.py $massdnsWordlist $domain | $toolsPath/massdns/bin/massdns -r $toolsPath/massdns/lists/resolvers.txt -t A -q -o S | grep -v 142.54.173.92 > ./$domain/$foldername/mass.txt
 }
 nsrecords(){
                 echo "Checking http://crt.sh"
@@ -213,7 +215,7 @@ report(){
   echo "${yellow}	[+] Generating report for $subdomain"
 
    cat ./$domain/$foldername/aqua_out/aquatone_session.json | jq --arg v "$subd" -r '.pages[$v].headers[] | keys[] as $k | "\($k), \(.[$k])"' | grep -v "decreasesSecurity\|increasesSecurity" >> ./$domain/$foldername/aqua_out/parsedjson/$subdomain.headers
-  dirsearchfile=$(ls ~/tools/dirsearch/reports/$subdomain/ | grep -v old)
+  dirsearchfile=$(ls $toolsPath/dirsearch/reports/$subdomain/ | grep -v old)
 
   touch ./$domain/$foldername/reports/$subdomain.html
   echo '<html><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -268,7 +270,7 @@ echo '<div class="container single-post-container">
  <th>Url</th>
  </tr></thead><tbody>" >> ./$domain/$foldername/reports/$subdomain.html
 
-   cat ~/tools/dirsearch/reports/$subdomain/$dirsearchfile | while read nline; do
+   cat $toolsPath/dirsearch/reports/$subdomain/$dirsearchfile | while read nline; do
   status_code=$(echo "$nline" | awk '{print $1}')
   size=$(echo "$nline" | awk '{print $2}')
   url=$(echo "$nline" | awk '{print $3}')
@@ -392,10 +394,10 @@ echo '<div class="container single-post-container">
 
 
 cat ./$domain/$foldername/urllist.txt |  sed 's/\http\:\/\///g' |  sed 's/\https\:\/\///g'  | while read nline; do
-diresults=$(ls ~/tools/dirsearch/reports/$nline/ | grep -v old)
+diresults=$(ls $toolsPath/dirsearch/reports/$nline/ | grep -v old)
 echo "<tr>
  <td><a href='./reports/$nline.html'>$nline</a></td>
- <td>$(wc -l ~/tools/dirsearch/reports/$nline/$diresults | awk '{print $1}')</td>
+ <td>$(wc -l $toolsPath/dirsearch/reports/$nline/$diresults | awk '{print $1}')</td>
  </tr>" >> ./$domain/$foldername/master_report.html
 done
 echo "</tbody></table>
@@ -448,8 +450,8 @@ ${reset}                                                      "
 }
 cleandirsearch(){
 	cat ./$domain/$foldername/urllist.txt | sed 's/\http\:\/\///g' |  sed 's/\https\:\/\///g' | sort -u | while read line; do
-  [ -d ~/tools/dirsearch/reports/$line/ ] && ls ~/tools/dirsearch/reports/$line/ | grep -v old | while read i; do
-  mv ~/tools/dirsearch/reports/$line/$i ~/tools/dirsearch/reports/$line/$i.old
+  [ -d $toolsPath/dirsearch/reports/$line/ ] && ls $toolsPath/dirsearch/reports/$line/ | grep -v old | while read i; do
+  mv $toolsPath/dirsearch/reports/$line/$i $toolsPath/dirsearch/reports/$line/$i.old
   done
   done
   }
