@@ -1,5 +1,12 @@
 #!/bin/bash
 
+########################################
+#
+# Fixes:
+#   use toolsPath variable instead of hardcoded paths
+#   Fix excludedomains when there is nothing given
+#   use relative addressing for screenshots within reports / fix by using "find" instead of "ls" to get name
+#
 
 ########################################
 # ///                                        \\\
@@ -302,13 +309,13 @@ echo '<div class="row">
 <div class="column">
 Port 80' >> ./$domain/$foldername/reports/$subdomain.html
 scpath=$(echo "$subdomain" | sed 's/\./_/g')
-httpsc=$(ls ./$domain/$foldername/aqua_out/screenshots/http__$scpath*  2>/dev/null)
-echo "<a href=\"../../../$httpsc\"><img/src=\"../../../$httpsc\"></a> " >> ./$domain/$foldername/reports/$subdomain.html
+httpsc=$(find ../aqua_out/screenshots/ -name http__$scpath* -printf "%f" 2>/dev/null)
+echo "<a href=\"../$httpsc\"><img/src=\"../../../$httpsc\"></a> " >> ./$domain/$foldername/reports/$subdomain.html
 echo '</div>
   <div class="column">
 Port 443' >> ./$domain/$foldername/reports/$subdomain.html
-httpssc=$(ls ./$domain/$foldername/aqua_out/screenshots/https__$scpath*  2>/dev/null)
-echo "<a href=\"../../../$httpssc\"><img/src=\"../../../$httpssc\"></a>" >> ./$domain/$foldername/reports/$subdomain.html
+httpssc=$(find ../aqua_out/screenshots/ -name https__$scpath* -printf "%f" 2>/dev/null)
+echo "<a href=\"../$httpssc\"><img/src=\"../../../$httpssc\"></a>" >> ./$domain/$foldername/reports/$subdomain.html
 echo "</div></div></pre>" >> ./$domain/$foldername/reports/$subdomain.html
 #echo "<h2>Dig Info</h2><pre>$(dig $subdomain)</pre>" >> ./$domain/$foldername/reports/$subdomain.html
 echo "<h2>Host Info</h2><pre>$(host $subdomain)</pre>" >> ./$domain/$foldername/reports/$subdomain.html
