@@ -71,15 +71,10 @@ fi
 
 discovery(){
 	hostalive $domain
-    #read -p "Press any key to resume after hostalive..."
 	cleandirsearch $domain
-    #read -p "Press any key to resume after cleandirsearch..."
 	aqua $domain
-    #read -p "Press any key to resume after aqua..."
 	cleanup $domain
-    #read -p "Press any key to resume after cleanup..."
 	waybackrecon $domain
-    #read -p "Press any key to resume after waybackrecon..."
 	dirsearcher
 }
 
@@ -132,9 +127,7 @@ recon(){
   #excludedomains
   echo "Starting discovery..."
   discovery $domain
-  #read -p "Press any key to resume after discovery..."
   cat ./$domain/$foldername/$domain.txt | sort -u > ./$domain/$foldername/$domain.sorted.txt
-  #read -p "Press any key to resume after final copy..."
 
 }
 
