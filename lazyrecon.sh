@@ -1,14 +1,6 @@
 #!/bin/bash
 
 ########################################
-#
-# Fixes:
-#   use toolsPath variable instead of hardcoded paths
-#   Fix excludedomains when there is nothing given
-#   use relative addressing for screenshots within reports / fix by using "find" instead of "ls" to get name
-#
-
-########################################
 # ///                                        \\\
 #  		You can edit your configuration here
 #
