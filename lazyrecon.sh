@@ -300,13 +300,13 @@ echo '<div class="row">
 Port 80' >> ./$domain/$foldername/reports/$subdomain.html
 scpath=$(echo "$subdomain" | sed 's/\./_/g')
 httpsc=$(find ./$domain/$foldername/aqua_out/screenshots/ -name http__$scpath* -printf "%f" 2>/dev/null)
-echo "<a href=\"../$httpsc\"><img/src=\"../../../$httpsc\"></a> " >> ./$domain/$foldername/reports/$subdomain.html
+echo "<a href=\"../aqua_out/screenshots/$httpsc\"><img/src=\"../aqua_out/screenshots/$httpsc\"></a> " >> ./$domain/$foldername/reports/$subdomain.html
 echo '</div>
   <div class="column">
 Port 443' >> ./$domain/$foldername/reports/$subdomain.html
 httpssc=$(find ./$domain/$foldername/aqua_out/screenshots/
  -name https__$scpath* -printf "%f" 2>/dev/null)
-echo "<a href=\"../$httpssc\"><img/src=\"../../../$httpssc\"></a>" >> ./$domain/$foldername/reports/$subdomain.html
+echo "<a href=\"../aqua_out/screenshots/$httpssc\"><img/src=\"../aqua_out/screenshots/$httpssc\"></a>" >> ./$domain/$foldername/reports/$subdomain.html
 echo "</div></div></pre>" >> ./$domain/$foldername/reports/$subdomain.html
 #echo "<h2>Dig Info</h2><pre>$(dig $subdomain)</pre>" >> ./$domain/$foldername/reports/$subdomain.html
 echo "<h2>Host Info</h2><pre>$(host $subdomain)</pre>" >> ./$domain/$foldername/reports/$subdomain.html
