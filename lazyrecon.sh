@@ -11,6 +11,7 @@ seclistsPath="$toolsPath/SecLists"
 sublist3rPath="$toolsPath/Sublist3r"
 dirsearchPath="$toolsPath/dirsearch"
 lazyreconPath="$toolsPath/lazyrecon"
+massdnsPath="$toolsPath/massdns"
 chromiumPath=/snap/bin/chromium
 auquatoneThreads=5
 subdomainThreads=10
