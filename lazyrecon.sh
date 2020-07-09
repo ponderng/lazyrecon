@@ -34,12 +34,19 @@ reset=`tput sgr0`
 
 SECONDS=0
 
+json_file=
+scope=
+json_subdomains=
 domain=
 subreport=
 usage() { echo -e "Usage: ./lazyrecon.sh -d domain.com [-e] [excluded.domain.com,other.domain.com]\nOptions:\n  -e\t-\tspecify excluded subdomains\n " 1>&2; exit 1; }
 
-while getopts ":d:e:r:" o; do
+while getopts ":j:d:e:r:" o; do
     case "${o}" in
+        j)
+            #### Process JSON scope files from BurpSuite for URL lists
+            json_file=${OPTARG}
+            ;;
         d)
             domain=${OPTARG}
             ;;
@@ -47,12 +54,12 @@ while getopts ":d:e:r:" o; do
             #### working on subdomain exclusion
         e)
             set -f
-	    IFS=","
-	    excluded+=($OPTARG)
-	    unset IFS
+            IFS=","
+            excluded+=($OPTARG)
+            unset IFS
             ;;
 
-		r)
+		    r)
             subreport+=("$OPTARG")
             ;;
         *)
@@ -62,7 +69,7 @@ while getopts ":d:e:r:" o; do
 done
 shift $((OPTIND - 1))
 
-if [ -z "${domain}" ] && [[ -z ${subreport[@]} ]]; then
+if [ -z "${domain}" ] && [ -z "${json_file}" ] && [[ -z ${subreport[@]} ]]; then
    usage; exit 1;
 fi
 
@@ -113,29 +120,37 @@ echo  "${yellow}Total of $(wc -l ./$domain/$foldername/urllist.txt | awk '{print
 }
 
 recon(){
-
   echo "${green}Recon started on $domain ${reset}"
+  
+  if [[ ! -z "$json_file" ]]; then
+    echo "Listing subdomains from JSON file..."
+    echo ${json_subdomains[@]} | tr " " "\n" | sort -u | grep "\.$domain" >> ./$domain/$foldername/alldomains.txt
+  fi
+
   echo "Listing subdomains using sublister..."
   python $sublist3rPath/sublist3r.py -d $domain -t 10 -v -e "yahoo,google,bing,virustotal,threatcrowd,ssl" -o ./$domain/$foldername/$domain.txt > /dev/null
   echo "Checking certspotter..."
   curl -s https://certspotter.com/api/v0/certs\?domain\=$domain | jq '.[].dns_names[]' | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $domain >> ./$domain/$foldername/$domain.txt
   nsrecords $domain
-  # excludedomains overwrites alldomains.txt if there's nothing given as excluded, which breaks the script
-  #excludedomains
+  
+  # excludedomains overwrites alldomains.txt if there's nothing given as excluded, so check for exclusions first
+  if [[ ! -z $excluded ]]; then
+    excludedomains
+  fi
+
   echo "Starting discovery..."
   discovery $domain
-  cat ./$domain/$foldername/$domain.txt | sort -u > ./$domain/$foldername/$domain.sorted.txt
-
+  cat ./$domain/$foldername/$domain.txt | sort -u > ./$domain/$foldername/$domain.txt
 }
 
 excludedomains(){
   # from @incredincomp with love <3
-  echo "Excluding domains (if you set them with -e)..."
+  echo "Excluding domains..."
   IFS=$'\n'
   # prints the $excluded array to excluded.txt with newlines 
   printf "%s\n" "${excluded[*]}" > ./$domain/$foldername/excluded.txt
   # this form of grep takes two files, reads the input from the first file, finds in the second file and removes
-  grep -vFf ./$domain/$foldername/excluded.txt ./$domain/$foldername/alldomains.txt > ./$domain/$foldername/alldomains2.txt
+  grep -vxf ./$domain/$foldername/excluded.txt ./$domain/$foldername/alldomains.txt > ./$domain/$foldername/alldomains2.txt
   mv ./$domain/$foldername/alldomains2.txt ./$domain/$foldername/alldomains.txt
   #rm ./$domain/$foldername/excluded.txt # uncomment to remove excluded.txt, I left for testing purposes
   echo "Subdomains that have been excluded from discovery:"
@@ -461,13 +476,44 @@ cleantemp(){
     rm ./$domain/$foldername/cleantemp.txt
 
 }
+
+process_json(){
+  for row in $(cat "${1}" | jq -c '.target.scope.include[].host'); do
+    # grep -oE '(\b\w+\b)'    get any hostname parts
+    # tr "\n" "."             put them on one line
+    # sed 's/\.$//g'          remove ending period
+    json_subdomains+=( $(echo $row | grep -oE '(\b\w+\b)' | tr "\n" "." | sed 's/\.$//g') )
+  done
+
+  for row in $(cat "${1}" | jq -c '.target.scope.exclude[]'); do
+    # only put a domain in the list if all files are excluded
+    if [[ $(echo $row | jq '.file') == "\"^/.*\"" ]]; then
+      # make sure to define whether subdomains are excluded by including ".*" for wildcard
+      # sed 's/["\^\\\$]//g'    remove certain special chars
+      # sed 's/\.\*\./\.\*/'    fix wildcard to catch main domain as well as subdomains
+      excluded+=( $(echo $row | jq '.host' | sed 's/["\^\\\$]//g' | sed 's/\.\*\./\.\*/') )
+    fi
+  done
+
+  scope+=( $(echo ${json_subdomains[@]} | tr " " "\n" | sort -u | grep -oE '\w+\.\w+$') )
+  echo -e "\nListing domains in scope..."
+  echo ${scope[@]} | tr " " "\n"
+
+  echo -e "\nListing subdomains..."
+  echo ${json_subdomains[@]} | tr " " "\n" | sort -u
+
+  echo -e "\nListing excludes..."
+  echo ${excluded[@]} | tr " " "\n" | sort -u
+}
+
 main(){
-if [ -z "${domain}" ]; then
-domain=${subreport[1]}
-foldername=${subreport[2]}
-subd=${subreport[3]}
-report $domain $subdomain $foldername $subd; exit 1;
-fi
+  if [ -z "${domain}" ]; then
+  domain=${subreport[1]}
+  foldername=${subreport[2]}
+  subd=${subreport[3]}
+  report $domain $subdomain $foldername $subd; exit 1;
+  fi
+
   clear
   logo
   if [ -d "./$domain" ]
@@ -505,8 +551,22 @@ fi
   stty sane
   tput sgr0
 }
+
 todate=$(date +"%Y-%m-%d")
 path=$(pwd)
 foldername=recon-$todate
 source ~/.bash_profile
-main $domain
+
+if [[ ! -z "$json_file" ]]; then
+  # process the json file
+  process_json $json_file
+
+  # for each high level domain in scope, run main()
+	for it in ${scope[@]}; do
+		domain=$it
+		echo "Processing domain: ${domain}"
+		main $domain
+	done
+else
+  main $domain
+fi
