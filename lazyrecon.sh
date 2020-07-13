@@ -180,35 +180,31 @@ nsrecords(){
   echo "${green}Started dns records check...${reset}"
   echo "Looking into CNAME Records..."
 
-
   cat ./$domain/$foldername/mass.txt >> ./$domain/$foldername/temp.txt
   cat ./$domain/$foldername/domaintemp.txt >> ./$domain/$foldername/temp.txt
   cat ./$domain/$foldername/crtsh.txt >> ./$domain/$foldername/temp.txt
 
-
   cat ./$domain/$foldername/temp.txt | awk '{print $3}' | sort -u | while read line; do
-  wildcard=$(cat ./$domain/$foldername/temp.txt | grep -m 1 $line)
-  echo "$wildcard" >> ./$domain/$foldername/cleantemp.txt
+    wildcard=$(cat ./$domain/$foldername/temp.txt | grep -m 1 $line)
+    echo "$wildcard" >> ./$domain/$foldername/cleantemp.txt
   done
-
-
 
   cat ./$domain/$foldername/cleantemp.txt | grep CNAME >> ./$domain/$foldername/cnames.txt
   cat ./$domain/$foldername/cnames.txt | sort -u | while read line; do
-  hostrec=$(echo "$line" | awk '{print $1}')
-  if [[ $(host $hostrec | grep NXDOMAIN) != "" ]]
-  then
-  echo "${red}Check the following domain for NS takeover:  $line ${reset}"
-  echo "$line" >> ./$domain/$foldername/pos.txt
-  else
-  echo -ne "working on it...\r"
-  fi
+    hostrec=$(echo "$line" | awk '{print $1}')
+    if [[ $(host $hostrec | grep NXDOMAIN) != "" ]]
+    then
+      echo "${red}Check the following domain for NS takeover:  $line ${reset}"
+      echo "$line" >> ./$domain/$foldername/pos.txt
+    else
+      echo -ne "working on it...\r"
+    fi
   done
   sleep 1
   cat ./$domain/$foldername/$domain.txt > ./$domain/$foldername/alldomains.txt
   cat ./$domain/$foldername/cleantemp.txt | awk  '{print $1}' | while read line; do
-  x="$line"
-  echo "${x%?}" >> ./$domain/$foldername/alldomains.txt
+    x="$line"
+    echo "${x%?}" >> ./$domain/$foldername/alldomains.txt
   done
   sleep 1
 }
