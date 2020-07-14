@@ -31,10 +31,10 @@ SECONDS=0
 
 json_file=
 scope=
-json_subdomains=
+included_files=
 domain=
 subreport=
-usage() { echo -e "Usage: ./lazyrecon.sh -d domain.com [-e] [excluded.domain.com,other.domain.com]\nOptions:\n  -e\t-\tspecify excluded subdomains\n " 1>&2; exit 1; }
+usage() { echo -e "Usage: ./lazyrecon.sh -d domain.com [-e] [excluded.domain.com,other.domain.com]\nOptions:\n  -e\t-\tspecify excluded subdomains\n  -j\t-\tprocess JSON Scope file from BurpSuite\n " 1>&2; exit 1; }
 
 while getopts ":j:d:e:r:" o; do
   case "${o}" in
@@ -114,18 +114,12 @@ hostalive(){
 recon(){
   echo "${green}Recon started on $domain ${reset}"
   
-  # if we're using json files from burpsuite, get subdomains from that first
-  if [[ ! -z "$json_file" ]]; then
-    echo "Listing subdomains from JSON file..."
-    echo ${json_subdomains[@]} | tr " " "\n" | sort -u | grep "\.$domain" >> ./$domain/$foldername/alldomains.txt
-  fi
-
   echo "Listing subdomains using sublister..."
   python $sublist3rPath/sublist3r.py -d $domain -t 10 -v -e "yahoo,google,bing,virustotal,threatcrowd,ssl" -o ./$domain/$foldername/$domain.txt > /dev/null
   echo "Checking certspotter..."
   curl -s https://certspotter.com/api/v0/certs\?domain\=$domain | jq '.[].dns_names[]' | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $domain >> ./$domain/$foldername/$domain.txt
   nsrecords $domain
-  
+
   # excludedomains overwrites alldomains.txt if there's nothing given as excluded, so check for exclusions first
   if [[ ! -z $excluded ]]; then
     excludedomains
@@ -140,14 +134,39 @@ excludedomains(){
   # from @incredincomp with love <3
   echo "Excluding domains..."
   IFS=$'\n'
+
+  # Minimize alldomains.txt for regex processing
+  echo "$(cat ./$domain/$foldername/alldomains.txt | sort -u)" > ./$domain/$foldername/alldomains.txt
+  
   # prints the $excluded array to excluded.txt with newlines 
   printf "%s\n" "${excluded[*]}" > ./$domain/$foldername/excluded.txt
-  # this form of grep takes two files, reads the input from the first file, finds in the second file and removes
-  grep -vxf ./$domain/$foldername/excluded.txt ./$domain/$foldername/alldomains.txt > ./$domain/$foldername/alldomains2.txt
-  mv ./$domain/$foldername/alldomains2.txt ./$domain/$foldername/alldomains.txt
+  # cleanup list to only unique entries
+  echo "$(cat ./$domain/$foldername/excluded.txt | sort -u)" > ./$domain/$foldername/excluded.txt
+
+  # if we have an included list, print the $included array to included.txt with newlines 
+  # else make an empty file for included.txt so it doesn't break later
+  if [[ ! -z $included ]]; then
+    printf "%s\n" "${included[*]}" > ./$domain/$foldername/included.txt
+    # cleanup list to only unique entries
+    echo "$(cat ./$domain/$foldername/included.txt | sort -u)" > ./$domain/$foldername/included.txt
+  else
+    touch ./$domain/$foldername/included.txt
+  fi
+
+  # get domains that will be removed
+  grep -Exf ./$domain/$foldername/excluded.txt ./$domain/$foldername/alldomains.txt > ./$domain/$foldername/removals.txt
+  # prune accepted domains from the removal list
+  echo "$(grep -Evxf ./$domain/$foldername/included.txt ./$domain/$foldername/removals.txt)" > ./$domain/$foldername/removals.txt
+  # take removals from alldomains.txt
+  echo "$(grep -Evxf ./$domain/$foldername/removals.txt ./$domain/$foldername/alldomains.txt)" > ./$domain/$foldername/alldomains.txt
+
   #rm ./$domain/$foldername/excluded.txt # uncomment to remove excluded.txt, I left for testing purposes
-  echo "Subdomains that have been excluded from discovery:"
-  printf "%s\n" "${excluded[@]}"
+  echo "Exclusions from discovery:"
+  cat ./$domain/$foldername/removals.txt
+
+  echo "Subdomains that have been explicitly included in discovery:"
+  cat ./$domain/$foldername/included.txt
+
   unset IFS
 }
 
@@ -451,29 +470,30 @@ cleantemp(){
 }
 
 process_json(){
-  for row in $(cat "${1}" | jq -c '.target.scope.include[].host'); do
-    # grep -oE '(\b\w+\b)'    get any hostname parts
-    # tr "\n" "."             put them on one line
-    # sed 's/\.$//g'          remove ending period
-    json_subdomains+=( $(echo $row | grep -oE '(\b\w+\b)' | tr "\n" "." | sed 's/\.$//g') )
+  for row in $(cat "${1}" | jq -c '.target.scope.include[]'); do
+    # get hostnames to include
+    # sed 's/["\\\^\$]//g'      remove special characters
+    included+=( $(echo $row | jq '.host' | sed 's/["\\\^\$]//g') )
+    # get specific files to include
+    # jq '.host + .file'        make complete url
+    included_files+=( $(echo $row | jq '.host + .file' | sed 's/["\\\^\$]//g') )
   done
 
   for row in $(cat "${1}" | jq -c '.target.scope.exclude[]'); do
     # only put a domain in the list if all files are excluded
     if [[ $(echo $row | jq '.file') == "\"^/.*\"" ]]; then
       # make sure to define whether subdomains are excluded by including ".*" for wildcard
-      # sed 's/["\^\\\$]//g'    remove certain special chars
-      # sed 's/\.\*\./\.\*/'    fix wildcard to catch main domain as well as subdomains
-      excluded+=( $(echo $row | jq '.host' | sed 's/["\^\\\$]//g' | sed 's/\.\*\./\.\*/') )
+      # sed 's/["\\\^\$]//g'      remove special characters
+      excluded+=( $(echo $row | jq '.host' | sed 's/["\\\^\$]//g') )
     fi
   done
 
-  scope+=( $(echo ${json_subdomains[@]} | tr " " "\n" | sort -u | grep -oE '\w+\.\w+$') )
+  scope+=( $(echo ${included[@]} | tr " " "\n" | grep -oE '\w+\.\w+$' | sort -u) )
   echo -e "\nListing domains in scope..."
   echo ${scope[@]} | tr " " "\n"
 
   echo -e "\nListing subdomains..."
-  echo ${json_subdomains[@]} | tr " " "\n" | sort -u
+  echo ${included_files[@]} | tr " " "\n" | sort -u
 
   echo -e "\nListing excludes..."
   echo ${excluded[@]} | tr " " "\n" | sort -u
