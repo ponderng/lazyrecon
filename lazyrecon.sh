@@ -29,7 +29,7 @@ reset=`tput sgr0`
 
 SECONDS=0
 
-json_file=
+scope_file=
 scope=
 included_files=
 domain=
@@ -40,7 +40,7 @@ while getopts ":j:d:e:r:" o; do
   case "${o}" in
     j)
       #### Process JSON scope files from BurpSuite for URL lists
-      json_file=${OPTARG}
+      scope_file=${OPTARG}
       ;;
     d)
       domain=${OPTARG}
@@ -61,7 +61,7 @@ while getopts ":j:d:e:r:" o; do
 done
 shift $((OPTIND - 1))
 
-if [ -z "${domain}" ] && [ -z "${json_file}" ] && [[ -z ${subreport[@]} ]]; then
+if [ -z "${domain}" ] && [ -z "${scope_file}" ] && [[ -z ${subreport[@]} ]]; then
    usage; exit 1;
 fi
 
@@ -551,9 +551,9 @@ path=$(pwd)
 foldername=recon-$todate
 source ~/.bash_profile
 
-if [[ ! -z "$json_file" ]]; then
+if [[ ! -z "$scope_file" ]]; then
   # process the json file
-  process_json $json_file
+  process_json $scope_file
 
   # for each high level domain in scope, run main()
 	for it in ${scope[@]}; do
