@@ -36,9 +36,9 @@ domain=
 subreport=
 usage() { echo -e "Usage: ./lazyrecon.sh -d domain.com [-e] [excluded.domain.com,other.domain.com]\nOptions:\n  -e\t-\tspecify excluded subdomains\n  -j\t-\tprocess JSON Scope file from BurpSuite\n " 1>&2; exit 1; }
 
-while getopts ":j:d:e:r:" o; do
+while getopts ":s:d:e:r:" o; do
   case "${o}" in
-    j)
+    s)
       #### Process JSON scope files from BurpSuite for URL lists
       scope_file=${OPTARG}
       ;;
